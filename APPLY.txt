@@ -1,0 +1,4 @@
+Extract this zip into the ROOT of your microkart repo (overwrite when asked), then:
+  git add -A
+  git commit -m "fix(ci): valid trivy-action tag, guard release until AWS is configured, read-only root fs"
+  git push

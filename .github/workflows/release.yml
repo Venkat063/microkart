@@ -27,6 +27,8 @@ jobs:
 
   build:
     needs: plan
+    # Skipped (not failed) until the AWS ECR role variable exists: see docs/OPS.md section 4.3
+    if: ${{ vars.AWS_ECR_ROLE_ARN != '' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: true
@@ -51,8 +53,9 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
       - name: Scan pushed image (fail on fixable CRITICAL)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
+          version: v0.69.3
           image-ref: ${{ steps.ecr.outputs.registry }}/microkart/${{ matrix.service }}:${{ needs.plan.outputs.tag }}
           severity: CRITICAL
           ignore-unfixed: true

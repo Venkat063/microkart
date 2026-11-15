@@ -19,6 +19,7 @@ spec:
       restartPolicy: OnFailure
       automountServiceAccountToken: false
       securityContext: {runAsNonRoot: true, runAsUser: 70, runAsGroup: 70, seccompProfile: {type: RuntimeDefault}}
+      volumes: [{name: tmp, emptyDir: {}}]
       containers:
         - name: init
           image: {{ .Values.dbInit.image }}
@@ -28,7 +29,8 @@ spec:
             - {name: PGPASSWORD, valueFrom: {secretKeyRef: {name: microkart-db, key: DB_PASSWORD}}}
             - {name: PGDATABASE, value: postgres}
             - {name: PGSSLMODE, value: {{ .Values.dbInit.sslmode | quote }}}
-          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
           command: ["sh", "-ec"]
           args:
             - |

@@ -86,6 +86,7 @@ Then put the real bucket name into `terraform/envs/backend-{dev,staging,prod}.hc
 
 1. Settings, Secrets and variables, Actions, **Variables**: `AWS_ECR_ROLE_ARN` = `ci_ecr_role_arn`, `AWS_TF_ROLE_ARN` = `ci_terraform_role_arn`.
 2. Settings, Environments: create `dev`, `staging`, `prod`. Add **required reviewers** on `staging` and `prod` (they gate `terraform apply`).
+   Until `AWS_ECR_ROLE_ARN` exists, the `release` build job is **skipped** (not failed), so a fresh push stays green.
 3. Branch protection on `main`: require the `ci` checks and Code Owner review. Allow the CI bot to push `deploy/envs/dev/image-tag.yaml` (bypass rule or a dedicated deploy token) since `release.yml` commits straight to `main`.
 
 ### 4.4 Create the environment (repeat per env, starting with dev)
@@ -146,7 +147,7 @@ Then repeat 4.4 to 4.7 for `staging` and `prod`.
 
 | Workflow | Trigger | Does |
 |---|---|---|
-| `ci.yml` | every PR, push to main | pytest, e2e smoke, generated-files check, `validate.sh` (helm + kubeconform), `terraform validate`, Trivy config scan, builds every image |
+| `ci.yml` | every PR, push to main | pytest, e2e smoke, generated-files check, `validate.sh` (helm + kubeconform), `terraform validate`, Trivy config scan (pinned to `trivy-action@0.35.0` / Trivy `v0.69.3`, known-safe after the March 2026 supply-chain incident; accepted findings in `.trivyignore`), builds every image |
 | `release.yml` | push to `main` (code changes) | builds every service, pushes `<sha12>` to ECR, Trivy-scans each image (fails on fixable CRITICAL), commits the tag to `deploy/envs/dev/image-tag.yaml` |
 | `promote.yml` | manual | opens a PR moving the tag dev to staging, or staging to prod, after confirming the image exists in ECR |
 | `terraform.yml` | PR touching `terraform/`; manual apply | plan for all envs on PR; apply behind Environment approval |

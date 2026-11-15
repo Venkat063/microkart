@@ -1,0 +1,3 @@
+# Accepted risk, reviewed: the Terraform state bucket uses SSE-S3 (AES256), not a customer-managed KMS key.
+# Upgrade path: add an aws_kms_key and set sse_algorithm = "aws:kms" in terraform/bootstrap/main.tf.
+AWS-0132
