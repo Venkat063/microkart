@@ -1,0 +1,42 @@
+{{- if .Values.dbInit.enabled }}
+{{- $dbs := list }}
+{{- range (include "mk.enabled" . | fromJsonArray) }}{{- if .stateful }}{{- $dbs = append $dbs (include "mk.dbname" .name) }}{{- end }}{{- end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: microkart-db-init
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  backoffLimit: 10
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: db-init, app.kubernetes.io/part-of: microkart}
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      securityContext: {runAsNonRoot: true, runAsUser: 70, runAsGroup: 70, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: init
+          image: {{ .Values.dbInit.image }}
+          env:
+            - {name: PGHOST, valueFrom: {secretKeyRef: {name: microkart-db, key: DB_HOST}}}
+            - {name: PGUSER, valueFrom: {secretKeyRef: {name: microkart-db, key: DB_USER}}}
+            - {name: PGPASSWORD, valueFrom: {secretKeyRef: {name: microkart-db, key: DB_PASSWORD}}}
+            - {name: PGDATABASE, value: postgres}
+            - {name: PGSSLMODE, value: {{ .Values.dbInit.sslmode | quote }}}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}}
+          command: ["sh", "-ec"]
+          args:
+            - |
+              for db in {{ join " " $dbs }}; do
+                if psql -tAc "SELECT 1 FROM pg_database WHERE datname='$db'" | grep -q 1; then
+                  echo "exists: $db"
+                else
+                  psql -c "CREATE DATABASE \"$db\"" && echo "created: $db"
+                fi
+              done
+{{- end }}

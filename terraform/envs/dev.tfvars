@@ -1,0 +1,12 @@
+environment         = "dev"
+vpc_cidr            = "10.10.0.0/16"
+single_nat_gateway  = true
+node_instance_types = ["t3.large"]
+node_capacity_type  = "SPOT"
+node_min_size       = 2
+node_desired_size   = 2
+node_max_size       = 4
+db_instance_class   = "db.t4g.small"
+db_multi_az         = false
+# api_public_access_cidrs = ["203.0.113.10/32"]   # your office/VPN egress IP
+# admin_role_arns         = ["arn:aws:iam::<acct>:role/<sso-admin-role>"]

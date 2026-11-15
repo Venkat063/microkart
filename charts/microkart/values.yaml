@@ -1,0 +1,54 @@
+# Defaults are production-shaped; per-environment overrides live in deploy/envs/<env>/.
+env: dev
+
+image:
+  registry: 000000000000.dkr.ecr.ap-south-1.amazonaws.com/microkart   # <registry>/<service>:<tag>
+  tag: latest          # CI writes the real tag to deploy/envs/<env>/image-tag.yaml
+  pullPolicy: IfNotPresent
+
+deployScaffolds: false  # true also deploys the generated skeleton services
+
+kafkaBootstrap: microkart-kafka-bootstrap.kafka.svc:9092
+otelEndpoint: http://jaeger-collector.observability.svc:4318   # empty string disables tracing
+
+defaults:
+  replicas: 1
+  resources:
+    requests: {cpu: 50m, memory: 96Mi}
+    limits: {memory: 192Mi}
+  autoscaling: {enabled: false, min: 2, max: 6, cpu: 70}
+
+# Per-service overrides: {name: {replicas, resources, autoscaling}}
+overrides: {}
+
+# Secrets
+externalSecrets:                 # production path: AWS Secrets Manager via External Secrets Operator
+  enabled: true
+  storeName: aws-secrets-manager
+  dbKey: microkart/dev/db        # JSON: host, username, password
+  appKey: microkart/dev/app      # JSON: JWT_SECRET
+secrets:                         # dev/kind only: plain Secrets from these values (never use in shared envs)
+  create: false
+  jwtSecret: dev-secret-change-me
+  db: {host: postgres, username: microkart, password: microkart}
+
+dbInit:                          # creates one database per stateful service (idempotent)
+  enabled: true
+  image: postgres:16-alpine
+  sslmode: prefer
+
+ingress:
+  enabled: true
+  className: nginx
+  host: api.dev.example.com
+  tls: {enabled: true, clusterIssuer: letsencrypt-prod}
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 1m
+    nginx.ingress.kubernetes.io/limit-rps: "50"
+
+networkPolicy: {enabled: true}
+
+monitoring:
+  enabled: true                  # needs the Prometheus Operator CRDs
+  interval: 15s
+  alerts: {errorRatio: 0.05, p95Seconds: 1}

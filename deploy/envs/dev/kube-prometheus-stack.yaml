@@ -1,0 +1,12 @@
+grafana:
+  ingress:
+    hosts: [grafana.dev.microkart.example.com]
+    tls: [{secretName: grafana-tls, hosts: [grafana.dev.microkart.example.com]}]
+prometheus:
+  prometheusSpec:
+    retention: 3d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          resources: {requests: {storage: 20Gi}}

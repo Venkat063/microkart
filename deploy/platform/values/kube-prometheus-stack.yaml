@@ -1,0 +1,15 @@
+# Pick up ServiceMonitors/PrometheusRules from any namespace without a `release` label.
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+grafana:
+  sidecar:
+    dashboards: {enabled: true, label: grafana_dashboard, searchNamespace: ALL}
+  ingress: {enabled: true, ingressClassName: nginx, annotations: {cert-manager.io/cluster-issuer: letsencrypt-prod}}
+alertmanager:
+  config:
+    route: {receiver: "null", group_by: [alertname, service], routes: []}
+    receivers: [{name: "null"}]
+    # Configure real receivers (Slack/PagerDuty) via a Secret - see docs/OPS.md "Alerting".

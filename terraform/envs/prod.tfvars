@@ -1,0 +1,14 @@
+environment                 = "prod"
+vpc_cidr                    = "10.30.0.0/16"
+single_nat_gateway          = false # one NAT per AZ
+node_instance_types         = ["m6i.xlarge"]
+node_min_size               = 3
+node_desired_size           = 3
+node_max_size               = 12
+db_instance_class           = "db.m6g.large"
+db_allocated_storage        = 100
+db_max_allocated_storage    = 500
+db_multi_az                 = true
+db_backup_retention_days    = 14
+deletion_protection         = true
+secret_recovery_window_days = 7

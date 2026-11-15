@@ -1,0 +1,42 @@
+# Promote the exact image tag from one environment to the next via a pull request (the PR is the approval record).
+name: promote
+on:
+  workflow_dispatch:
+    inputs:
+      from: {description: Source environment, type: choice, options: [dev, staging], required: true}
+      to: {description: Target environment, type: choice, options: [staging, prod], required: true}
+permissions: {id-token: write, contents: write, pull-requests: write}
+env:
+  AWS_REGION: ap-south-1
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate path (dev->staging, staging->prod only)
+        run: |
+          case "${{ inputs.from }}->${{ inputs.to }}" in
+            dev-\>staging|staging-\>prod) ;;
+            *) echo "only dev->staging and staging->prod are allowed"; exit 1;;
+          esac
+      - id: tag
+        run: echo "tag=$(grep 'tag:' deploy/envs/${{ inputs.from }}/image-tag.yaml | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ECR_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Verify the image exists in ECR before promoting
+        run: aws ecr describe-images --repository-name microkart/api-gateway --image-ids imageTag=${{ steps.tag.outputs.tag }} >/dev/null
+      - name: Pin the target environment to that tag
+        run: |
+          printf 'image:\n  tag: %s\n' "${{ steps.tag.outputs.tag }}" > deploy/envs/${{ inputs.to }}/image-tag.yaml
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: promote/${{ inputs.to }}-${{ steps.tag.outputs.tag }}
+          title: "Promote ${{ steps.tag.outputs.tag }} to ${{ inputs.to }}"
+          commit-message: "deploy(${{ inputs.to }}): ${{ steps.tag.outputs.tag }}"
+          body: |
+            Promotes `${{ steps.tag.outputs.tag }}` from **${{ inputs.from }}** to **${{ inputs.to }}**.
+            Checklist: dev/staging smoke green, no open `page` alerts, rollback = revert this PR.
+          labels: promotion

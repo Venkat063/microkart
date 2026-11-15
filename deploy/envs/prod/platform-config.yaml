@@ -1,0 +1,9 @@
+letsencryptEmail: platform@example.com
+kafka:
+  replicas: 3
+  replicationFactor: 3
+  minIsr: 2
+  storage: {type: persistent, size: 100Gi, class: gp3}
+  resources: {requests: {cpu: "1", memory: 4Gi}, limits: {memory: 4Gi}}
+  retentionMs: 1209600000     # 14 days
+jaeger: {enabled: true}

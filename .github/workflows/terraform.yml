@@ -1,0 +1,42 @@
+name: terraform
+on:
+  pull_request:
+    paths: ['terraform/**', 'services.yaml']
+  workflow_dispatch:
+    inputs:
+      env: {description: Environment to apply, type: choice, options: [dev, staging, prod], required: true}
+permissions: {id-token: write, contents: read, pull-requests: write}
+env:
+  AWS_REGION: ap-south-1
+
+jobs:
+  plan:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: {env: [dev, staging, prod]}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: {role-to-assume: "${{ vars.AWS_TF_ROLE_ARN }}", aws-region: "${{ env.AWS_REGION }}"}
+      - run: terraform init -input=false -backend-config=envs/backend-${{ matrix.env }}.hcl
+        working-directory: terraform
+      - run: terraform plan -input=false -no-color -lock=false -var-file=envs/${{ matrix.env }}.tfvars | tee plan-${{ matrix.env }}.txt
+        working-directory: terraform
+      - uses: actions/upload-artifact@v4
+        with: {name: "plan-${{ matrix.env }}", path: "terraform/plan-${{ matrix.env }}.txt"}
+
+  apply:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.env }}   # configure required reviewers on staging and prod in GitHub -> Settings -> Environments
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - uses: aws-actions/configure-aws-credentials@v4
+        with: {role-to-assume: "${{ vars.AWS_TF_ROLE_ARN }}", aws-region: "${{ env.AWS_REGION }}"}
+      - run: terraform init -input=false -backend-config=envs/backend-${{ inputs.env }}.hcl
+        working-directory: terraform
+      - run: terraform apply -input=false -auto-approve -var-file=envs/${{ inputs.env }}.tfvars
+        working-directory: terraform

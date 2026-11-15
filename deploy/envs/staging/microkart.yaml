@@ -1,0 +1,7 @@
+env: staging
+ingress: {host: api.staging.microkart.example.com}
+externalSecrets: {dbKey: microkart/staging/db, appKey: microkart/staging/app}
+defaults:
+  replicas: 2
+overrides:
+  api-gateway: {autoscaling: {enabled: true, min: 2, max: 4, cpu: 70}}

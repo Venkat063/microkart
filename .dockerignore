@@ -1,0 +1,11 @@
+.git
+.github
+.data
+.logs
+deploy
+terraform
+charts
+docs
+tests
+**/__pycache__
+*.md

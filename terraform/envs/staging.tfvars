@@ -1,0 +1,9 @@
+environment         = "staging"
+vpc_cidr            = "10.20.0.0/16"
+single_nat_gateway  = true
+node_instance_types = ["m6i.large"]
+node_min_size       = 3
+node_desired_size   = 3
+node_max_size       = 6
+db_instance_class   = "db.t4g.medium"
+db_multi_az         = false

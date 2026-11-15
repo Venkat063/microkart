@@ -1,0 +1,55 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: dual-role
+  namespace: kafka
+  labels: {strimzi.io/cluster: microkart}
+spec:
+  replicas: {{ .Values.kafka.replicas }}
+  roles: [controller, broker]
+  {{- if eq .Values.kafka.storage.type "ephemeral" }}
+  storage: {type: ephemeral}
+  {{- else }}
+  storage:
+    type: jbod
+    volumes:
+      - {id: 0, type: persistent-claim, size: {{ .Values.kafka.storage.size }}, class: {{ .Values.kafka.storage.class }}, deleteClaim: false}
+  {{- end }}
+  resources: {{- toYaml .Values.kafka.resources | nindent 4 }}
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: microkart
+  namespace: kafka
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
+spec:
+  kafka:
+    version: {{ .Values.kafka.version }}
+    metadataVersion: {{ .Values.kafka.metadataVersion }}
+    listeners: [{name: plain, port: 9092, type: internal, tls: false}]
+    config:
+      offsets.topic.replication.factor: {{ .Values.kafka.replicationFactor }}
+      transaction.state.log.replication.factor: {{ .Values.kafka.replicationFactor }}
+      transaction.state.log.min.isr: {{ .Values.kafka.minIsr }}
+      default.replication.factor: {{ .Values.kafka.replicationFactor }}
+      min.insync.replicas: {{ .Values.kafka.minIsr }}
+      num.partitions: {{ .Values.kafka.partitions }}
+      auto.create.topics.enable: false
+  entityOperator:
+    topicOperator: {}
+{{- range .Values.kafka.topics }}
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: {{ . }}
+  namespace: kafka
+  labels: {strimzi.io/cluster: microkart}
+spec:
+  partitions: {{ $.Values.kafka.partitions }}
+  replicas: {{ $.Values.kafka.replicationFactor }}
+  config: {retention.ms: {{ $.Values.kafka.retentionMs }}}
+{{- end }}

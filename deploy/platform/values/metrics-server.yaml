@@ -1,0 +1,2 @@
+# Required for HorizontalPodAutoscalers (EKS does not ship metrics-server).
+replicas: 2

@@ -1,0 +1,9 @@
+# Local kind cluster: plain Secrets, in-cluster Postgres/Kafka, no Prometheus Operator CRDs.
+image: {registry: microkart, tag: local, pullPolicy: Never}
+kafkaBootstrap: kafka:9092
+otelEndpoint: ""
+externalSecrets: {enabled: false}
+secrets: {create: true}
+ingress: {enabled: false}
+monitoring: {enabled: false}
+networkPolicy: {enabled: false}

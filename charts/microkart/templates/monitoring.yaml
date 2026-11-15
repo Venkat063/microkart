@@ -1,0 +1,86 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: microkart
+spec:
+  selector: {matchLabels: {app.kubernetes.io/part-of: microkart}}
+  namespaceSelector: {matchNames: [{{ .Release.Namespace }}]}
+  endpoints: [{port: http, path: /metrics, interval: {{ .Values.monitoring.interval }}}]
+  targetLabels: [microkart.io/domain]
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: microkart-alerts
+spec:
+  groups:
+    - name: microkart.slo
+      rules:
+        - alert: MicrokartHighErrorRatio
+          expr: |
+            sum by (service) (rate(http_requests_total{status=~"5..",service!=""}[5m]))
+              / sum by (service) (rate(http_requests_total{service!=""}[5m])) > {{ .Values.monitoring.alerts.errorRatio }}
+            and sum by (service) (rate(http_requests_total{service!=""}[5m])) > 0.1
+          for: 10m
+          labels: {severity: page}
+          annotations:
+            summary: {{ `"{{ $labels.service }}: more than 5% of requests are failing"` }}
+            runbook: "docs/OPS.md#alert-runbooks"
+        - alert: MicrokartHighLatencyP95
+          expr: |
+            histogram_quantile(0.95, sum by (service, le) (rate(http_request_duration_seconds_bucket[5m]))) > {{ .Values.monitoring.alerts.p95Seconds }}
+          for: 10m
+          labels: {severity: ticket}
+          annotations:
+            summary: {{ `"{{ $labels.service }}: p95 latency above 1s"` }}
+            runbook: "docs/OPS.md#alert-runbooks"
+    - name: microkart.events
+      rules:
+        - alert: MicrokartDeadLetterEvents
+          expr: increase(events_consumed_total{result="dead_letter"}[10m]) > 0
+          labels: {severity: page}
+          annotations:
+            summary: {{ `"{{ $labels.service }} sent {{ $labels.type }} events to the DLQ"` }}
+            runbook: "docs/OPS.md#alert-runbooks"
+        - alert: MicrokartNoEventsPublished
+          expr: |
+            sum(rate(http_requests_total{service="order",route="/orders",method="POST",status="202"}[10m])) > 0.05
+            and sum(rate(events_consumed_total{service="payment",type="order.placed"}[10m])) == 0
+          for: 10m
+          labels: {severity: page}
+          annotations:
+            summary: "Orders are accepted but Payment consumes nothing: check Kafka and the outbox relay"
+            runbook: "docs/OPS.md#alert-runbooks"
+    - name: microkart.kube
+      rules:
+        - alert: MicrokartPodCrashLooping
+          expr: increase(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}"}[15m]) > 3
+          labels: {severity: page}
+          annotations:
+            summary: {{ `"{{ $labels.pod }} is restarting repeatedly"` }}
+            runbook: "docs/OPS.md#alert-runbooks"
+        - alert: MicrokartDeploymentUnavailable
+          expr: kube_deployment_status_replicas_unavailable{namespace="{{ .Release.Namespace }}"} > 0
+          for: 10m
+          labels: {severity: ticket}
+          annotations:
+            summary: {{ `"{{ $labels.deployment }} has unavailable replicas"` }}
+            runbook: "docs/OPS.md#alert-runbooks"
+        - alert: MicrokartTargetDown
+          expr: up{namespace="{{ .Release.Namespace }}"} == 0
+          for: 5m
+          labels: {severity: ticket}
+          annotations:
+            summary: {{ `"{{ $labels.service }} metrics endpoint is down"` }}
+            runbook: "docs/OPS.md#alert-runbooks"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: microkart-dashboard
+  labels: {grafana_dashboard: "1"}
+data:
+  microkart.json: |-
+{{ .Files.Get "files/dashboard.json" | indent 4 }}
+{{- end }}

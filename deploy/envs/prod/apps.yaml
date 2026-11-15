@@ -1,0 +1,2 @@
+# Prod deploys are gated: merge the promotion PR, then press Sync (or `argocd app sync microkart`).
+microkartAutoSync: false

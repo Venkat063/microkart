@@ -1,0 +1,3 @@
+# Written by scripts/ops/tf_to_values.py from `terraform output`. Do not edit by hand.
+image:
+  registry: 000000000000.dkr.ecr.ap-south-1.amazonaws.com/microkart

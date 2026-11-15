@@ -1,0 +1,58 @@
+# Platform config: needs the operators above (CRDs) to exist, hence wave 1.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-config
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "1"}
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: deploy/platform/config
+    helm:
+      valueFiles: [../../envs/{{ .Values.env }}/platform-config.yaml]
+  destination: {server: https://kubernetes.default.svc, namespace: kafka}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true, SkipDryRunOnMissingResource=true]
+    retry: {limit: 10, backoff: {duration: 15s, factor: 2, maxDuration: 5m}}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+  annotations: {argocd.argoproj.io/sync-wave: "0"}
+---
+# The application itself: images are pinned by deploy/envs/<env>/image-tag.yaml (written by CI).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: microkart
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "2"}
+  finalizers: [resources-finalizer.argocd.argoproj.io]
+spec:
+  project: default
+  source:
+    repoURL: {{ .Values.repoURL }}
+    targetRevision: {{ .Values.targetRevision }}
+    path: charts/microkart
+    helm:
+      valueFiles:
+        - ../../deploy/envs/{{ .Values.env }}/microkart.yaml
+        - ../../deploy/envs/{{ .Values.env }}/generated.yaml
+        - ../../deploy/envs/{{ .Values.env }}/image-tag.yaml
+  destination: {server: https://kubernetes.default.svc, namespace: microkart}
+  syncPolicy:
+    {{- if .Values.microkartAutoSync }}
+    automated: {prune: true, selfHeal: true}
+    {{- end }}
+    syncOptions: [CreateNamespace=true, SkipDryRunOnMissingResource=true]
+    managedNamespaceMetadata:
+      labels:
+        pod-security.kubernetes.io/enforce: restricted
+        pod-security.kubernetes.io/enforce-version: latest
+    retry: {limit: 5, backoff: {duration: 15s, factor: 2, maxDuration: 3m}}

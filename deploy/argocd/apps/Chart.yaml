@@ -1,0 +1,4 @@
+apiVersion: v2
+name: microkart-apps
+description: ArgoCD app-of-apps for one environment (install once per cluster via the root Application)
+version: 0.1.0

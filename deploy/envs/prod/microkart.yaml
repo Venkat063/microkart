@@ -1,0 +1,14 @@
+env: prod
+ingress: {host: api.microkart.example.com}
+externalSecrets: {dbKey: microkart/prod/db, appKey: microkart/prod/app}
+defaults:
+  replicas: 3
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {memory: 256Mi}
+overrides:
+  api-gateway: {autoscaling: {enabled: true, min: 3, max: 12, cpu: 60}}
+  order:       {autoscaling: {enabled: true, min: 3, max: 10, cpu: 65}}
+  payment:     {autoscaling: {enabled: true, min: 3, max: 10, cpu: 65}}
+  menu:        {autoscaling: {enabled: true, min: 3, max: 8, cpu: 70}}
+  cart:        {autoscaling: {enabled: true, min: 3, max: 8, cpu: 70}}

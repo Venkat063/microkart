@@ -1,0 +1,12 @@
+env: dev
+repoURL: https://github.com/YOUR_ORG/microkart.git
+targetRevision: main
+# prod: set false so a human presses Sync after the promotion PR merges
+microkartAutoSync: true
+platform:
+  - {name: ingress-nginx, repo: https://kubernetes.github.io/ingress-nginx, chart: ingress-nginx, version: 4.11.3, namespace: ingress-nginx, wave: "0"}
+  - {name: cert-manager, repo: https://charts.jetstack.io, chart: cert-manager, version: v1.16.1, namespace: cert-manager, wave: "0"}
+  - {name: external-secrets, repo: https://charts.external-secrets.io, chart: external-secrets, version: 0.10.5, namespace: external-secrets, wave: "0", envValues: true}
+  - {name: kube-prometheus-stack, repo: https://prometheus-community.github.io/helm-charts, chart: kube-prometheus-stack, version: 66.2.1, namespace: monitoring, wave: "0", envValues: true, serverSideApply: true}
+  - {name: strimzi, repo: https://strimzi.io/charts/, chart: strimzi-kafka-operator, version: 0.44.0, namespace: kafka, wave: "0"}
+  - {name: metrics-server, repo: https://kubernetes-sigs.github.io/metrics-server/, chart: metrics-server, version: 3.12.2, namespace: kube-system, wave: "0"}

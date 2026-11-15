@@ -1,0 +1,101 @@
+{{- $svcs := include "mk.enabled" . | fromJsonArray }}
+{{- range $s := $svcs }}
+{{- $o := (get $.Values.overrides $s.name) | default dict }}
+{{- $res := $o.resources | default $.Values.defaults.resources }}
+{{- $hpa := $o.autoscaling | default $.Values.defaults.autoscaling }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $s.name }}
+  labels: {{- include "mk.labels" (dict "root" $ "svc" $s) | nindent 4 }}
+spec:
+  {{- if not $hpa.enabled }}
+  replicas: {{ $o.replicas | default $.Values.defaults.replicas }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  strategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
+  selector:
+    matchLabels: {{- include "mk.selector" (dict "name" $s.name "release" $.Release.Name) | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "mk.labels" (dict "root" $ "svc" $s) | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: {{- include "mk.selector" (dict "name" $s.name "release" $.Release.Name) | nindent 14 }}
+      containers:
+        - name: {{ $s.name }}
+          image: {{ $.Values.image.registry }}/{{ $s.name }}:{{ $.Values.image.tag }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          ports: [{name: http, containerPort: 8000}]
+          env:
+            - name: JWT_SECRET
+              valueFrom: {secretKeyRef: {name: microkart-app, key: JWT_SECRET}}
+            - {name: EVENT_BUS, value: kafka}
+            - {name: KAFKA_BOOTSTRAP, value: {{ $.Values.kafkaBootstrap | quote }}}
+            - {name: OTEL_EXPORTER_OTLP_ENDPOINT, value: {{ $.Values.otelEndpoint | quote }}}
+            - {name: OTEL_SERVICE_NAME, value: {{ $s.name }}}
+            {{- if $s.stateful }}
+            - name: DB_HOST
+              valueFrom: {secretKeyRef: {name: microkart-db, key: DB_HOST}}
+            - name: DB_USER
+              valueFrom: {secretKeyRef: {name: microkart-db, key: DB_USER}}
+            - name: DB_PASSWORD
+              valueFrom: {secretKeyRef: {name: microkart-db, key: DB_PASSWORD}}
+            - name: DATABASE_URL   # $(VAR) is expanded by Kubernetes from the entries above
+              value: postgresql+psycopg://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):5432/{{ include "mk.dbname" $s.name }}
+            {{- end }}
+          startupProbe:   {httpGet: {path: /health, port: http}, periodSeconds: 3, failureThreshold: 40}
+          readinessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 5, failureThreshold: 3}
+          livenessProbe:  {httpGet: {path: /health, port: http}, periodSeconds: 10, failureThreshold: 3}
+          resources: {{- toYaml $res | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes: [{name: tmp, emptyDir: {}}]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $s.name }}
+  labels: {{- include "mk.labels" (dict "root" $ "svc" $s) | nindent 4 }}
+spec:
+  selector: {{- include "mk.selector" (dict "name" $s.name "release" $.Release.Name) | nindent 4 }}
+  ports: [{name: http, port: 8000, targetPort: http}]
+{{- if $hpa.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: {name: {{ $s.name }}}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: {{ $s.name }}}
+  minReplicas: {{ $hpa.min }}
+  maxReplicas: {{ $hpa.max }}
+  metrics:
+    - type: Resource
+      resource: {name: cpu, target: {type: Utilization, averageUtilization: {{ $hpa.cpu }}}}
+{{- end }}
+{{- if or $hpa.enabled (gt (int ($o.replicas | default $.Values.defaults.replicas)) 1) }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: {name: {{ $s.name }}}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels: {{- include "mk.selector" (dict "name" $s.name "release" $.Release.Name) | nindent 6 }}
+{{- end }}
+{{- end }}

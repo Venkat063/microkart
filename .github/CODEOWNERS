@@ -1,0 +1,6 @@
+# Replace @YOUR_ORG/platform-team with your real team. Enable "Require review from Code Owners" on main.
+/deploy/envs/prod/   @YOUR_ORG/platform-team
+/deploy/envs/staging/ @YOUR_ORG/platform-team
+/terraform/          @YOUR_ORG/platform-team
+/charts/             @YOUR_ORG/platform-team
+/.github/workflows/  @YOUR_ORG/platform-team

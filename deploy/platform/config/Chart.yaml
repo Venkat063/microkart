@@ -1,0 +1,4 @@
+apiVersion: v2
+name: platform-config
+description: Cluster-level config for MicroKart - secret store, TLS issuer, storage class, Kafka, Jaeger
+version: 0.1.0

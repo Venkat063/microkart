@@ -1,0 +1,31 @@
+# Source of truth for every service. `implemented` services have hand-written code;
+# the rest are scaffolded by scripts/generate.py until you build them out.
+implemented: [api-gateway, auth-identity, user-profile, menu, cart, order, payment, notification-orchestrator]
+domains:
+  edge-platform:
+    phase: 2
+    services: [api-gateway, bff-web, bff-mobile, auth-identity, config-service, service-registry]
+  users-accounts:
+    phase: 2
+    services: [user-profile, address-book, preferences, kyc-verification, loyalty-rewards, referral]
+  catalog-merchants:
+    phase: 2
+    services: [restaurant-onboarding, menu, inventory, pricing, search, recommendation, reviews-ratings, media-image]
+  ordering:
+    phase: 2
+    services: [cart, order, checkout, promotions-coupons, tax, order-tracking, scheduling, subscription]
+  payments-finance:
+    phase: 3
+    services: [payment, wallet, refund, invoice, settlement-payouts, fraud-detection]
+  logistics-delivery:
+    phase: 3
+    services: [delivery-partner-onboarding, dispatch-assignment, routing-eta, live-location, geo-zones, surge-pricing, partner-earnings, fleet-management]
+  communication:
+    phase: 3
+    services: [notification-orchestrator, email, sms, push, in-app-chat-support]
+  support-ops:
+    phase: 4
+    services: [ticketing, dispute-resolution, admin-console, audit-log, feature-flags]
+  data-intelligence:
+    phase: 4
+    services: [event-ingestion, analytics-reporting, ml-feature-store, ab-experimentation, demand-forecasting]
